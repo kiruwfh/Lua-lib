@@ -820,6 +820,7 @@ local function getsize(frame)
 	return size
 end
 library.fps = ''
+library.guiVisible = true -- Track GUI visibility state
 
 local s,e = pcall(function()
 	local k = game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValueString()
@@ -836,7 +837,74 @@ else
 	end)
 end
 
+-- GUI Toggle functionality
+function library:SetToggleKey(keyCode)
+	keyCode = keyCode or Enum.KeyCode.RightShift -- Default to Right Shift
 
+	game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
+		if not gameProcessed and input.KeyCode == keyCode then
+			library:ToggleGUI()
+		end
+	end)
+
+	print("🔑 GUI Toggle key set to:", keyCode.Name)
+end
+
+function library:ToggleGUI()
+	library.guiVisible = not library.guiVisible
+
+	-- Toggle main GUI
+	if MAIN then
+		MAIN.Visible = library.guiVisible
+	end
+
+	-- Toggle all color palettes
+	for _, child in pairs(PCR_1:GetChildren()) do
+		if child.Name == "COLORPALLETE" then
+			child.Visible = false -- Always hide color palettes when toggling
+		end
+	end
+
+	print(library.guiVisible and "👁️ GUI Shown" or "🙈 GUI Hidden")
+end
+
+function library:SetGUIVisible(visible)
+	library.guiVisible = visible
+	if MAIN then
+		MAIN.Visible = visible
+	end
+end
+
+-- Set default toggle key (Right Shift)
+library:SetToggleKey(Enum.KeyCode.RightShift)
+
+
+
+function library:AddToggleKeybind(Text, keyCode, callback)
+	Text = Text or 'Toggle GUI'
+	keyCode = keyCode or Enum.KeyCode.RightShift
+	callback = callback or function() end
+
+	-- Override the default toggle key
+	library:SetToggleKey(keyCode)
+
+	-- Add custom callback
+	local originalToggle = library.ToggleGUI
+	library.ToggleGUI = function(self)
+		originalToggle(self)
+		pcall(callback, library.guiVisible)
+	end
+
+	print("🔑 Custom GUI toggle keybind set:", keyCode.Name)
+	return {
+		UpdateKey = function(newKey)
+			library:SetToggleKey(newKey)
+		end,
+		GetVisible = function()
+			return library.guiVisible
+		end
+	}
+end
 
 function library:AddWatermark(Text)
 	local intern = {}
