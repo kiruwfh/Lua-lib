@@ -683,6 +683,9 @@ local library = {};
 library.sections = {};
 local totalSections = 0;
 
+-- Initialize GUI visibility state
+library.guiVisible = true;
+
 function library:ChangeWeb(site)
 	WEBSITE.Text = site
 end
@@ -838,10 +841,20 @@ else
 end
 
 -- GUI Toggle functionality
-function library:SetToggleKey(keyCode)
-	keyCode = keyCode or Enum.KeyCode.RightShift -- Default to Right Shift
+library.toggleConnection = nil
+library.currentToggleKey = Enum.KeyCode.RightShift
 
-	game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
+function library:SetToggleKey(keyCode)
+	keyCode = keyCode or Enum.KeyCode.RightShift
+	library.currentToggleKey = keyCode
+
+	-- Disconnect previous connection
+	if library.toggleConnection then
+		library.toggleConnection:Disconnect()
+	end
+
+	-- Create new connection
+	library.toggleConnection = game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
 		if not gameProcessed and input.KeyCode == keyCode then
 			library:ToggleGUI()
 		end
@@ -873,6 +886,16 @@ function library:SetGUIVisible(visible)
 	if MAIN then
 		MAIN.Visible = visible
 	end
+end
+
+-- Additional utility methods
+function library:GetCurrentToggleKey()
+	return library.currentToggleKey
+end
+
+function library:UpdateToggleKey(newKey)
+	library:SetToggleKey(newKey)
+	print("🔑 GUI toggle key updated to:", newKey.Name)
 end
 
 -- Set default toggle key (Right Shift)
@@ -2399,6 +2422,108 @@ spawn(function()
 	Start = TimeFunction()
 	RunService.Heartbeat:Connect(HeartbeatUpdate)
 end)
-library.GUI = PCR_1 
+-- Add Keybind function
+function library:AddKeybind(text, defaultKey, callback)
+	local keybindFrame = Instance.new("Frame")
+	local keybindLabel = Instance.new("TextLabel")
+	local keybindButton = Instance.new("TextButton")
+	local UICorner = Instance.new("UICorner")
+	local UIStroke = Instance.new("UIStroke")
+
+	-- Frame setup
+	keybindFrame.Name = "KeybindFrame"
+	keybindFrame.Parent = MAIN
+	keybindFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+	keybindFrame.BackgroundTransparency = 0.3
+	keybindFrame.BorderSizePixel = 0
+	keybindFrame.Position = UDim2.new(0, 10, 0, 50)
+	keybindFrame.Size = UDim2.new(0, 200, 0, 30)
+
+	UICorner.CornerRadius = UDim.new(0, 6)
+	UICorner.Parent = keybindFrame
+
+	UIStroke.Parent = keybindFrame
+	UIStroke.Color = Color3.fromRGB(80, 80, 80)
+	UIStroke.Thickness = 1
+	UIStroke.Transparency = 0.5
+
+	-- Label setup
+	keybindLabel.Name = "Label"
+	keybindLabel.Parent = keybindFrame
+	keybindLabel.BackgroundTransparency = 1
+	keybindLabel.Position = UDim2.new(0, 5, 0, 0)
+	keybindLabel.Size = UDim2.new(0, 120, 1, 0)
+	keybindLabel.Font = Enum.Font.Gotham
+	keybindLabel.Text = text or "Toggle GUI"
+	keybindLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	keybindLabel.TextSize = 12
+	keybindLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+	-- Button setup
+	keybindButton.Name = "KeyButton"
+	keybindButton.Parent = keybindFrame
+	keybindButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+	keybindButton.BackgroundTransparency = 0.2
+	keybindButton.BorderSizePixel = 0
+	keybindButton.Position = UDim2.new(0, 125, 0, 3)
+	keybindButton.Size = UDim2.new(0, 70, 0, 24)
+	keybindButton.Font = Enum.Font.Gotham
+	keybindButton.Text = defaultKey and defaultKey.Name or "RightShift"
+	keybindButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+	keybindButton.TextSize = 10
+
+	local buttonCorner = Instance.new("UICorner")
+	buttonCorner.CornerRadius = UDim.new(0, 4)
+	buttonCorner.Parent = keybindButton
+
+	local currentKey = defaultKey or Enum.KeyCode.RightShift
+	local listening = false
+
+	keybindButton.MouseButton1Click:Connect(function()
+		if listening then return end
+
+		listening = true
+		keybindButton.Text = "Press key..."
+		keybindButton.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+
+		local connection
+		connection = game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
+			if gameProcessed then return end
+
+			if input.UserInputType == Enum.UserInputType.Keyboard then
+				currentKey = input.KeyCode
+				keybindButton.Text = currentKey.Name
+				keybindButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+
+				-- Update the toggle key if this is for GUI toggle
+				if text == "Toggle GUI" or not text then
+					library:SetToggleKey(currentKey)
+				end
+
+				-- Call callback if provided
+				if callback then
+					callback(currentKey)
+				end
+
+				listening = false
+				connection:Disconnect()
+			end
+		end)
+	end)
+
+	return {
+		Frame = keybindFrame,
+		GetKey = function() return currentKey end,
+		SetKey = function(newKey)
+			currentKey = newKey
+			keybindButton.Text = newKey.Name
+			if text == "Toggle GUI" or not text then
+				library:SetToggleKey(newKey)
+			end
+		end
+	}
+end
+
+library.GUI = PCR_1
 
 return library
